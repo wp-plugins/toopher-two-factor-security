@@ -172,7 +172,7 @@ function toopher_user_options_menu($user){
     <div >
 
       <div class="toopher-show-when-unpaired" style="float: left; ">
-        <img src='<?php echo(TOOPHER_PLUGIN_URL . '/media/iPhone-5-black.png'); ?>' />
+        <img src='<?php echo(TOOPHER_PLUGIN_URL . '/media/iPhone-5-Black.png'); ?>' />
       </div>
       <div class="toopher-show-when-unpaired" style="float: left; margin-top:90px; margin-left: 15px;">
         <img src='<?php echo(TOOPHER_PLUGIN_URL . '/media/Arrow.png'); ?>' />
