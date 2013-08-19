@@ -1,4 +1,4 @@
-=== Toopher Two-Factor Security ===
+=== Toopher Two-Factor Security (BETA) ===
 Contributors: Toopher, Inc.
 Tags: security, two-factor, password, login, otp, authentication
 Requires at least: 3.5.1
@@ -47,6 +47,12 @@ on their user profile page.
 1. The Toopher Pairing screen, located in the User Profile admin view
 
 == Changelog ==
+
+= 1.2 (BETA) =
+
+* Fix issue with Toopher user-specific options defaulting to incorrect values
+* Add uninstall routine
+* Add link to settings page on plugin list
 
 = 1.1 =
 

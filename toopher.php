@@ -1,9 +1,9 @@
 <?php
 /* 
-Plugin Name: Toopher Two-Factor Authentication
+Plugin Name: Toopher Two-Factor Authentication (BETA)
 Plugin URI: http://wordpress.org/plugins/toopher-two-factor-security/
 Description: Toopher's Location-based Two-Factor Authentication protects your website from unauthorized logins.
-Version: 1.1
+Version: 1.2
 Author: Toopher, Inc.
 Author URI: https://www.toopher.com
 License: GPLv2 or later
@@ -20,11 +20,7 @@ function strip_wp_magic_quotes($s){
     }
 }
 
-function enqueue_jquery_cookie(){
-    wp_enqueue_script('jquery-cookie', plugins_url('js/jquery.cookie.min.js', __FILE__));
-}
-
-add_action('admin_enqueue_scripts', 'enqueue_jquery_cookie');
+add_filter('plugin_action_links', 'toopher_plugin_action_links', 10, 2);
 
 require('lib/ajax-endpoints.php');
 require('lib/toopher-authenticate-login.php');
@@ -45,6 +41,22 @@ if(!function_exists('_log')){
       }
     }
   }
+}
+
+function toopher_plugin_action_links($links, $file) {
+    // h/t to http://www.wpmayor.com/code/provide-a-shortcut-to-your-settings-page-with-plugin-action-links/
+    static $this_plugin;
+
+    if (!$this_plugin) {
+        $this_plugin = plugin_basename(__FILE__);
+    }
+
+    if ($file == $this_plugin) {
+        $settings_link = '<a href="options-general.php?page=ToopherForWordpress">Settings</a>';
+        array_unshift($links, $settings_link);
+    }
+
+    return $links;
 }
 
 if(!class_exists('ToopherWordpress') && !isset($toopherWordpress)) :

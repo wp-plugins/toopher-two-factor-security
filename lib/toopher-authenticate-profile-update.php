@@ -8,7 +8,7 @@ function toopher_begin_authorize_profile_update($errors, $update, $user){
     if ($errors->get_error_codes()){
         return;
     }
-    if ((get_user_meta((int)$user->ID, 't2s_user_paired', true)) && (get_user_meta((int)$user->ID, 't2s_authenticate_profile_update', true))){
+    if ((get_user_option('t2s_user_paired', (int)$user->ID)) && (get_user_option('t2s_authenticate_profile_update', (int)$user->ID))){
         if(isset($_POST['toopher_authentication_successful']) && ($_POST['toopher_authentication_successful'] === 'true')){
             return;
         } else {
@@ -30,7 +30,7 @@ function toopher_finish_authorize_profile_update($errors, $update, $user){
     if(isset($_POST['toopher_sig'])){
         $pending_user_id = $_POST['pending_user_id'];
         unset($_POST['pending_user_id']);
-        $secret = get_site_option('toopher_api_secret');
+        $secret = get_option ('toopher_api_secret');
         foreach(array('terminal_name', 'reason') as $toopher_key){
             $_POST[$toopher_key] = strip_wp_magic_quotes($_POST[$toopher_key]);
         }
@@ -62,9 +62,9 @@ function toopher_finish_authorize_profile_update($errors, $update, $user){
 }
 
 function toopher_profile_update_pending($user){
-    $key = get_site_option('toopher_api_key');
-    $secret = get_site_option('toopher_api_secret');
-    $baseUrl = get_site_option('toopher_api_url');
+    $key = get_option('toopher_api_key');
+    $secret = get_option('toopher_api_secret');
+    $baseUrl = get_option('toopher_api_url');
     $automationAllowed = false;
     $session_token = wp_generate_password(12, false);
     set_transient($user->ID . '_t2s_authentication_session_token', $session_token, 2 * MINUTE_IN_SECONDS);
@@ -78,7 +78,6 @@ function toopher_profile_update_pending($user){
     );
 
     wp_enqueue_script('jquery');
-    enqueue_jquery_cookie();
 ?>
 <html>
     <head>
@@ -89,6 +88,7 @@ function toopher_profile_update_pending($user){
         <iframe id='toopher_iframe' style="display: inline-block;"  toopher_postback='<?php echo get_admin_url(get_current_blog_id(), 'profile.php') ?>' framework_post_args='<?php echo json_encode($toopher_finish_authenticate_parameters) ?>' toopher_req='<?php echo $signed_url ?>'></iframe>
         </div>
         <script>
+<?php  include('jquery.cookie.min.js'); ?>
 <?php  include('toopher-web/toopher-web.js'); ?>
         </script>
 <?php get_footer(); wp_footer(); ?>

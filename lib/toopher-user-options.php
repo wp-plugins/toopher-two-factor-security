@@ -18,9 +18,11 @@ function refresh_toopher_user_options($uid){
     if(!$refreshToopherUserOptionsCalled){
         $refreshToopherUserOptionsCalled = true;
         foreach($toopherUserOptions as $key => $val){
-            $userMeta = get_user_meta($uid, $key, true);
-            if ($userMeta === ""){
+            $userMeta = get_user_option($key, $uid);
+            if ($userMeta === false){
+                // user has no setting for toopher options.  Set the default.
                 $userMeta = $toopherUserOptions[$key][1];
+                update_user_option($uid, $key, $userMeta);
             }
 
             $toopherUserOptionVals[$key] = $userMeta;
@@ -54,7 +56,7 @@ function toopher_apply_updated_user_settings($user){
     delete_transient($user->ID . '_pending_toopher_profile_settings');
     if ($updatedToopherUserOptionVals){
         foreach ($updatedToopherUserOptionVals as $key => $val){
-            update_user_meta((int)$user->ID, $key, $val);
+            update_user_option((int)$user->ID, $key, $val);
             $toopherUserOptionVals[$key] = $val;
         }
     }
@@ -86,9 +88,8 @@ function toopher_edit_user_options_menu_container($user){
 }
 function toopher_user_options_menu($user){
 
-    $pairedWithToopher = get_user_meta((int)$user->ID, 't2s_user_paired', true);
-    $pairingRowStyle = $pairedWithToopher ? 'display: none; ' : '';
-    $unpairingRowStyle = $pairedWithToopher ? '' : 'display: none; ';
+    $pairedWithToopher = get_user_option('t2s_user_paired', (int)$user->ID);
+
 ?>
 <div class="wrap" style="width: 600px; ">
 <style>
@@ -228,7 +229,7 @@ toopherUserOptions.init(
 
 function toopher_edit_user_options_menu($user){
     $uid = (int)$user->ID;
-    $pairedWithToopher = get_user_meta($uid, 't2s_user_paired', true);
+    $pairedWithToopher = get_user_option('t2s_user_paired', $uid);
     global $toopherUserOptions;
     global $toopherUserOptionVals;
     $headerText = IS_PROFILE_PAGE ? 'my account' : 'this user';

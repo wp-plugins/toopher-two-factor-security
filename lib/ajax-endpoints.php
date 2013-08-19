@@ -9,7 +9,7 @@ function toopherGetPairUrlForCurrentUser() {
     $baseUrl = get_option('toopher_api_url');
     $user = wp_get_current_user();
     
-    if (get_user_meta((int)$user->ID, 't2s_user_paired', true)){
+    if (get_user_option('t2s_user_paired', (int)$user->ID)){
         $url = ToopherWeb::unpair_iframe_url($user->data->user_login, 60, $baseUrl, $key, $secret);
     } else {
         $url = ToopherWeb::pair_iframe_url($user->data->user_login, 60, $baseUrl, $key, $secret);
@@ -30,8 +30,8 @@ function toopherUpdatePairing() {
         $toopherPairingId = $_POST['id'];
         $toopherUserId = $_POST['user_id'];
         $user = wp_get_current_user();
-        update_user_meta((int)$user->ID, 't2s_user_paired', $pairingEnabled && (!$pairingPending));
-        update_user_meta((int)$user->ID, 't2s_pairing_id', $toopherPairingId);
+        update_user_option((int)$user->ID, 't2s_user_paired', $pairingEnabled && (!$pairingPending));
+        update_user_option((int)$user->ID, 't2s_pairing_id', $toopherPairingId);
         echo json_encode(array('paired' => $pairingEnabled && (!$pairingPending)));
     }
     die();

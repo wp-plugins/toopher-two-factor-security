@@ -11,18 +11,16 @@ add_filter('authenticate', 'toopher_finish_authenticate_login', 0, 1);
 function toopher_begin_authenticate_login($user){
     error_log('toopher_begin_authenticate_login');
     if (is_a($user, 'WP_User')){
-        if ((get_user_meta((int)$user->ID, 't2s_user_paired', true)) && (get_user_meta((int)$user->ID, 't2s_authenticate_login', true))){
+        if ((get_user_option('t2s_user_paired', (int)$user->ID)) && (get_user_option('t2s_authenticate_login', (int)$user->ID))){
             if(isset($_POST['toopher_authentication_successful']) && ($_POST['toopher_authentication_successful'] === 'true')){
                 return $user;
             } else {
                 error_log('user should be toopher-authenticated');
                 if(defined('XMLRPC_REQUEST') && XMLRPC_REQUEST){
-                    error_log('toopher-authenticating XML-RPC login');
-                    error_log('cookies: ' . var_export($_COOKIE, true));
                     setcookie('wp-xmlrpc-t2s-terminal-id', 'test');
                     require_once('toopher_api.php');
                     $api = new ToopherAPI(get_option('toopher_api_key'), get_option('toopher_api_secret'), get_option('toopher_api_url'));
-                    $authStatus = $api->authenticate(get_user_meta((int)$user->ID, 't2s_pairing_id', true), "my blog");
+                    $authStatus = $api->authenticate(get_user_option('t2s_pairing_id', (int)$user->ID), "my blog");
                     while($authStatus['pending']){
                         $authStatus = $api->getAuthenticationStatus($authStatus['id']);
                     }
@@ -37,7 +35,7 @@ function toopher_begin_authenticate_login($user){
             }
         } else {
             error_log('user does not have toopher protection enabled');
-            error_log('t2s_user_paired is ' + (string)get_user_meta((int)$user->ID, 't2s_user_paired'));
+            error_log('t2s_user_paired is ' + (string)get_user_option('t2s_user_paired', (int)$user->ID));
         }
     } else {
         error_log('not a WP_User');
@@ -57,7 +55,7 @@ function toopher_finish_authenticate_login($user){
         $redirect_to = $_POST['redirect_to'];
         unset($_POST['pending_user_id']);
         unset($_POST['redirect_to']);
-        $secret = get_site_option('toopher_api_secret');
+        $secret = get_option('toopher_api_secret');
         foreach(array('terminal_name', 'reason') as $toopher_key){
             $_POST[$toopher_key] = strip_wp_magic_quotes($_POST[$toopher_key]);
         }
@@ -82,10 +80,10 @@ function toopher_finish_authenticate_login($user){
 }
 
 function toopher_login_pending($user){
-    $key = get_site_option('toopher_api_key');
-    $secret = get_site_option('toopher_api_secret');
-    $baseUrl = get_site_option('toopher_api_url');
-    $automatedLoginAllowed = get_site_option('toopher_allow_automated_login', true);
+    $key = get_option('toopher_api_key');
+    $secret = get_option('toopher_api_secret');
+    $baseUrl = get_option('toopher_api_url');
+    $automatedLoginAllowed = get_option('toopher_allow_automated_login', 1);
     $session_token = wp_generate_password(12, false);
     set_transient($user->ID . '_t2s_authentication_session_token', $session_token, 2 * MINUTE_IN_SECONDS);
     $signed_url = ToopherWeb::auth_iframe_url($user->user_login, 'Log In', 100, $automatedLoginAllowed, $baseUrl, $key, $secret, $session_token);
@@ -95,7 +93,6 @@ function toopher_login_pending($user){
         'redirect_to' => $_POST['redirect_to']
     );
     wp_enqueue_script('jquery');
-    enqueue_jquery_cookie();
 ?>
 <html>
     <head>
@@ -106,6 +103,7 @@ function toopher_login_pending($user){
         <iframe id='toopher_iframe' style="display: inline-block;"  toopher_postback='<?php echo wp_login_url() ?>' framework_post_args='<?php echo json_encode($toopher_finish_authenticate_parameters) ?>' toopher_req='<?php echo $signed_url ?>'></iframe>
         </div>
         <script>
+<?php  include('jquery.cookie.min.js') ?>
 <?php  include('toopher-web/toopher-web.js'); ?>
         </script>
 <?php get_footer(); wp_footer(); ?>
