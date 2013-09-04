@@ -3,7 +3,7 @@
 Plugin Name: Toopher Two-Factor Authentication (BETA)
 Plugin URI: http://wordpress.org/plugins/toopher-two-factor-security/
 Description: Toopher's Location-based Two-Factor Authentication protects your website from unauthorized logins.
-Version: 1.2
+Version: 1.3
 Author: Toopher, Inc.
 Author URI: https://www.toopher.com
 License: GPLv2 or later

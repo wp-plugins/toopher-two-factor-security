@@ -48,6 +48,10 @@ on their user profile page.
 
 == Changelog ==
 
+= 1.3 (BETA) =
+
+* Fix issue with XMLRPC authentication routine polling indefinitely in some cases.
+
 = 1.2 (BETA) =
 
 * Fix issue with Toopher user-specific options defaulting to incorrect values

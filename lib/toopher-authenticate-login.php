@@ -20,9 +20,16 @@ function toopher_begin_authenticate_login($user){
                     setcookie('wp-xmlrpc-t2s-terminal-id', 'test');
                     require_once('toopher_api.php');
                     $api = new ToopherAPI(get_option('toopher_api_key'), get_option('toopher_api_secret'), get_option('toopher_api_url'));
-                    $authStatus = $api->authenticate(get_user_option('t2s_pairing_id', (int)$user->ID), "my blog");
+                    $startTime = time();
+                    $authStatus = $api->authenticate(get_user_option('t2s_pairing_id', (int)$user->ID), '', 'XML-RPC Access', array('automation_allowed' => 'false'));
                     while($authStatus['pending']){
+                        if ((time() - $startTime) > 60) {
+                            error_log('Timeout while waiting for XMLRPC authentication from Toopher!');
+                            $user = new WP_Error('Toopher Authentication Failure', __('Timeout waiting for response to Toopher authentication request'));
+                            return $user;
+                        }
                         $authStatus = $api->getAuthenticationStatus($authStatus['id']);
+                        sleep(1);
                     }
                     if(!$authStatus['granted']){
                         $user = new WP_Error('Toopher Authentication Failure', __('Unable to authenticate user through Toopher API'));
