@@ -1,9 +1,9 @@
 <?php
 /* 
-Plugin Name: Toopher Two-Factor Authentication (BETA)
+Plugin Name: Toopher Two-Factor Authentication
 Plugin URI: http://wordpress.org/plugins/toopher-two-factor-security/
 Description: Toopher's Location-based Two-Factor Authentication protects your website from unauthorized logins.
-Version: 1.3
+Version: 2.0
 Author: Toopher, Inc.
 Author URI: https://www.toopher.com
 License: GPLv2 or later
@@ -22,20 +22,18 @@ function strip_wp_magic_quotes($s){
 
 add_filter('plugin_action_links', 'toopher_plugin_action_links', 10, 2);
 
-require('lib/ajax-endpoints.php');
-require('lib/toopher-authenticate-login.php');
-require('lib/toopher-authenticate-profile-update.php');
-require('lib/toopher-user-options.php');
-require('lib/toopher-settings.php');
+require_once('lib/toopher-web/toopher-web.php');
+require_once('lib/toopher-authenticate-login.php');
+require_once('lib/toopher-authenticate-profile-update.php');
+require_once('lib/toopher-user-options.php');
+require_once('lib/toopher-settings.php');
 
 if(!function_exists('_log')){
   function _log( $message ) {
     if( WP_DEBUG === true ){
       if( is_array( $message ) || is_object( $message ) ){
         error_log('dumping an object...');
-        echo('dumping an object');
         error_log(print_r( $message , true));
-        echo(var_export( $message , true));
       } else {
         error_log( $message );
       }

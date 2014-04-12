@@ -3,29 +3,26 @@ require_once('OAuth.php');
 
 class ToopherWeb
 {
-    public static function pair_iframe_url($username, $ttl, $baseUrl, $key, $secret)
-    {
-        return ToopherWeb::_pair_iframe_url($username, $ttl, 'pair', $baseUrl, $key, $secret);
-    }
-    public static function unpair_iframe_url($username, $ttl, $baseUrl, $key, $secret)
-    {
-        return ToopherWeb::_pair_iframe_url($username, $ttl, 'unpair', $baseUrl, $key, $secret);
-    }
-    private static function _pair_iframe_url($username, $ttl, $path, $baseUrl, $key, $secret)
+    public static function pair_iframe_url($username, $reset_email, $ttl, $baseUrl, $key, $secret)
     {
         $params = array(
-            'username' => $username
+          'username' => $username,
+          'reset_email' => $reset_email
         );
 
-        return ToopherWeb::getOAuthUrl($baseUrl . 'web/' . $path, $params, $ttl, $key, $secret);
+        return ToopherWeb::getOAuthUrl($baseUrl . 'web/pair', $params, $ttl, $key, $secret);
     }
-    public static function auth_iframe_url($username, $action, $ttl, $automation_allowed, $baseUrl, $key, $secret, $session_token=Null)
+    public static function auth_iframe_url($username, $reset_email, $action, $ttl, $automation_allowed, $baseUrl, $key, $secret, $session_token, $extras = array())
     {
         $params = array(
             'username' => $username,
             'action_name' => $action,
-            'automation_allowed' => $automation_allowed ? 'True' : 'False'
+            'automation_allowed' => $automation_allowed ? 'True' : 'False',
+            'reset_email' => $reset_email
         );
+        if ($extras) {
+            $params['requester_metadata'] = base64_encode(json_encode($extras));
+        }
         return ToopherWeb::getOAuthUrl($baseUrl . 'web/auth', $params, $ttl, $key, $secret, $session_token);
     }
 
@@ -33,9 +30,14 @@ class ToopherWeb
     {
         $maybe_sig = $data['toopher_sig'];
         unset($data['toopher_sig']);
-        $signature_valid = ToopherWeb::signature($secret, $data) === $maybe_sig;
+        $computed_sig = ToopherWeb::signature($secret, $data);
+        $signature_valid = $computed_sig === $maybe_sig;
         $ttl_valid = (time() - $ttl) < (int)$data['timestamp'];
-        return $signature_valid && $ttl_valid;
+        if ($signature_valid && $ttl_valid) {
+          return $data;
+        } else {
+          return false;
+        }
     }
 
     public static function signature($secret, $data)
@@ -48,8 +50,9 @@ class ToopherWeb
 
     private static function getOAuthUrl($url, $getParams, $ttl, $key, $secret, $session_token=Null)
     {
+        $getParams['v'] = '2';
         $expiresAt = (time() + $ttl);
-        $getParams['ttl'] = (string)$expiresAt;
+        $getParams['expires'] = (string)$expiresAt;
         if ($session_token){
             $getParams['session_token'] = $session_token;
         }

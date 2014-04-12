@@ -9,43 +9,35 @@ add_filter('authenticate', 'toopher_finish_authenticate_login', 0, 1);
  **/
 
 function toopher_begin_authenticate_login($user){
-    error_log('toopher_begin_authenticate_login');
     if (is_a($user, 'WP_User')){
-        if ((get_user_option('t2s_user_paired', (int)$user->ID)) && (get_user_option('t2s_authenticate_login', (int)$user->ID))){
-            if(isset($_POST['toopher_authentication_successful']) && ($_POST['toopher_authentication_successful'] === 'true')){
-                return $user;
+        if(isset($_POST['toopher_authentication_successful']) && ($_POST['toopher_authentication_successful'] === 'true')){
+            return $user;
+        } else {
+            if(defined('XMLRPC_REQUEST') && XMLRPC_REQUEST){
+                require_once('toopher_api.php');
+                $api = new ToopherAPI(get_option('toopher_api_key'), get_option('toopher_api_secret'), get_option('toopher_api_url'));
+                $startTime = time();
+                $authStatus = $api->authenticate(get_user_option('t2s_pairing_id', (int)$user->ID), '', 'XML-RPC Access', array('automation_allowed' => 'false'));
+                while($authStatus['pending']){
+                    if ((time() - $startTime) > 60) {
+                        $user = new WP_Error('Toopher Authentication Failure', __('Timeout waiting for response to Toopher authentication request'));
+                        return $user;
+                    }
+                    $authStatus = $api->getAuthenticationStatus($authStatus['id']);
+                    sleep(1);
+                }
+                if(!$authStatus['granted']){
+                    $user = new WP_Error('Toopher Authentication Failure', __('Unable to authenticate user through Toopher API'));
+                }
             } else {
-                error_log('user should be toopher-authenticated');
-                if(defined('XMLRPC_REQUEST') && XMLRPC_REQUEST){
-                    setcookie('wp-xmlrpc-t2s-terminal-id', 'test');
-                    require_once('toopher_api.php');
-                    $api = new ToopherAPI(get_option('toopher_api_key'), get_option('toopher_api_secret'), get_option('toopher_api_url'));
-                    $startTime = time();
-                    $authStatus = $api->authenticate(get_user_option('t2s_pairing_id', (int)$user->ID), '', 'XML-RPC Access', array('automation_allowed' => 'false'));
-                    while($authStatus['pending']){
-                        if ((time() - $startTime) > 60) {
-                            error_log('Timeout while waiting for XMLRPC authentication from Toopher!');
-                            $user = new WP_Error('Toopher Authentication Failure', __('Timeout waiting for response to Toopher authentication request'));
-                            return $user;
-                        }
-                        $authStatus = $api->getAuthenticationStatus($authStatus['id']);
-                        sleep(1);
-                    }
-                    if(!$authStatus['granted']){
-                        $user = new WP_Error('Toopher Authentication Failure', __('Unable to authenticate user through Toopher API'));
-                    }
-                } else {
-                    error_log('beginning toopher interactive login');
+                if (get_user_option('t2s_authenticate_login', (int)$user->ID)){
                     toopher_login_pending($user);
                     exit();
                 }
-            }
-        } else {
-            error_log('user does not have toopher protection enabled');
-            error_log('t2s_user_paired is ' + (string)get_user_option('t2s_user_paired', (int)$user->ID));
-        }
+              }
+          }
     } else {
-        error_log('not a WP_User');
+        // not a WP_User
     }
 
     return $user;
@@ -58,29 +50,53 @@ function toopher_finish_authenticate_login($user){
     }
 
     if(isset($_POST['toopher_sig'])){
-        $pending_user_id = $_POST['pending_user_id'];
-        $redirect_to = $_POST['redirect_to'];
-        unset($_POST['pending_user_id']);
-        unset($_POST['redirect_to']);
-        $secret = get_option('toopher_api_secret');
         foreach(array('terminal_name', 'reason') as $toopher_key){
-            $_POST[$toopher_key] = strip_wp_magic_quotes($_POST[$toopher_key]);
+            if (array_key_exists($toopher_key, $_POST)) {
+                $_POST[$toopher_key] = strip_wp_magic_quotes($_POST[$toopher_key]);
+            }
         }
+        $secret = get_option('toopher_api_secret');
+        $validated_data = ToopherWeb::validate($secret, $_POST, 100);
+
+        if (!$validated_data) {
+            return new WP_Error('Toopher Authentication Failure', __('Toopher API Signature did not match expected value'));
+        }
+        
+        $requester_metadata = json_decode(base64_decode($validated_data['requester_metadata']));
+        $pending_user_id = $requester_metadata->pending_user_id;
+        $redirect_to = $requester_metadata->redirect_to;
 
         $pending_session_token = get_transient($pending_user_id . '_t2s_authentication_session_token');
         delete_transient($pending_user_id . '_t2s_authentication_session_token');
-        if(($pending_session_token === $_POST['session_token']) && ToopherWeb::validate($secret, $_POST, 100)){
-            error_log('toopher signature validates');
-            $authGranted = ($_POST['pending'] === 'false') && ($_POST['granted'] === 'true');
-            if($authGranted){
-                error_log('auth granted');
+        if($pending_session_token === $validated_data['session_token']){
+            $auth_granted = false;
+            if (array_key_exists('error_code', $validated_data)){
+                $error_code = $validated_data['error_code'];
+                $error_message = $validated_data['error_message'];
+
+                # three specific errors will be allowed to fail open, corresponding to allowing users
+                # to opt-in to Toopher (instead of requiring all users to participate)
+                if ($error_code === '707') { # pairing deactivated - allow in
+                    $auth_granted = true;
+                } elseif ($error_code === '704') { # user opt-out - allow in
+                    $auth_granted = true;
+                } elseif ($error_code === '705') { # unknown user - allow in
+                    $auth_granted = true;
+                } elseif (($error_code === '601') && (strpos($error_message, 'Pairing has not been authorized to authenticate') !== FALSE)) {
+                    $auth_granted = true;
+                }
+            } else {
+                $auth_granted = ($validated_data['pending'] === 'false') && ($validated_data['granted'] === 'true');
+            }
+            if($auth_granted){
                 $user = get_user_by('id', $pending_user_id);
                 $_POST['redirect_to'] = $redirect_to;
+            } else {
+                $user = new WP_Error('Toopher Authentication Failure', __('Toopher Authentication has denied this Login request'));
             }
-            $_POST['toopher_authentication_successful'] = $authGranted ? 'true' : 'false';
+            $_POST['toopher_authentication_successful'] = $auth_granted ? 'true' : 'false';
         } else {
-            error_log('toopher signature does not validate!');
-            $user = new WP_Error('Toopher Authentication Failure', __('Toopher API Signature did not match expected value'));
+            $user = new WP_Error('Toopher Authentication Failure', __('Toopher API Session Token Mismatch'));
         }
     }
     return $user;
@@ -92,13 +108,18 @@ function toopher_login_pending($user){
     $baseUrl = get_option('toopher_api_url');
     $automatedLoginAllowed = get_option('toopher_allow_automated_login', 1);
     $session_token = wp_generate_password(12, false);
-    set_transient($user->ID . '_t2s_authentication_session_token', $session_token, 2 * MINUTE_IN_SECONDS);
-    $signed_url = ToopherWeb::auth_iframe_url($user->user_login, 'Log In', 100, $automatedLoginAllowed, $baseUrl, $key, $secret, $session_token);
-
-    $toopher_finish_authenticate_parameters = array(
+    set_transient($user->ID . '_t2s_authentication_session_token', $session_token, 20 * MINUTE_IN_SECONDS);
+    $requester_metadata = array(
         'pending_user_id' => $user->ID,
         'redirect_to' => $_POST['redirect_to']
     );
+    $signed_url = ToopherWeb::auth_iframe_url($user->user_login, $user->user_email, 'Log In', 100, $automatedLoginAllowed, $baseUrl, $key, $secret, $session_token, $requester_metadata);
+
+    $postback_url = wp_login_url();
+    if ($_GET) {
+        $postback_url = $postback_url . '?' . http_build_query($_GET);
+    }
+
     wp_enqueue_script('jquery');
 ?>
 <html>
@@ -106,12 +127,14 @@ function toopher_login_pending($user){
         <?php wp_head(); ?>
     </head>
     <body>
-        <div style="width:100%; text-align:center; padding:50px;">
-        <iframe id='toopher_iframe' style="display: inline-block;"  toopher_postback='<?php echo wp_login_url() ?>' framework_post_args='<?php echo json_encode($toopher_finish_authenticate_parameters) ?>' toopher_req='<?php echo $signed_url ?>'></iframe>
+        <div style="width:80%; text-align:center; margin-left: auto; margin-right: auto;">
+        <iframe id='toopher_iframe' style="display: inline-block; height:300px; width:100%;"  toopher_postback='<?php echo $postback_url ?>' toopher_req='<?php echo $signed_url ?>'></iframe>
         </div>
         <script>
 <?php  include('jquery.cookie.min.js') ?>
 <?php  include('toopher-web/toopher-web.js'); ?>
+
+    toopher.init('#toopher_iframe');
         </script>
 <?php get_footer(); wp_footer(); ?>
     </body>
