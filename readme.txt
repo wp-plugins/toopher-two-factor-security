@@ -1,4 +1,4 @@
-=== Toopher Two-Factor Security (BETA) ===
+=== Toopher Two-Factor Security ===
 Contributors: Toopher, Inc.
 Tags: security, two-factor, password, login, otp, authentication
 Requires at least: 3.5.1
