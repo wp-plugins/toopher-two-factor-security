@@ -48,6 +48,10 @@ on their user profile page.
 
 == Changelog ==
 
+= 2.1 =
+
+* replace use of mt_rand() with openssl_random_pseudo_bytes()
+
 = 2.0 =
 
 * Add pairing reset widget
