@@ -1,5 +1,5 @@
 <?php
-require_once('OAuth.php');
+require_once('ToopherOAuth.php');
 
 class ToopherWeb
 {
@@ -56,9 +56,9 @@ class ToopherWeb
         if ($session_token){
             $getParams['session_token'] = $session_token;
         }
-        $oauth = new OAuthConsumer($key, $secret);
-        $req = OAuthRequest::from_consumer_and_token($oauth, NULL, 'GET', $url, $getParams);
-        $req->sign_request(new OAuthSignatureMethod_HMAC_SHA1(), $oauth, null);
+        $oauth = new ToopherOAuthConsumer($key, $secret);
+        $req = ToopherOAuthRequest::from_consumer_and_token($oauth, NULL, 'GET', $url, $getParams);
+        $req->sign_request(new ToopherOAuthSignatureMethod_HMAC_SHA1(), $oauth, null);
         return $req->to_url();
     }
 }
